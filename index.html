@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board Game Quiz</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f5fb; --card: #fff; --text: #1d2030; --muted: #6a6f85; --border: #dfe2ee;
+    --accent: #5b5bf0; --ok: #1faa59; --ok-bg: #dcf7e7; --bad: #e5384f; --bad-bg: #fde1e5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14151f; --card: #1f2130; --text: #eceefa; --muted: #9a9fb8; --border: #333650;
+      --accent: #8484ff; --ok: #3ddc84; --ok-bg: #153a27; --bad: #ff6378; --bad-bg: #44202a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start;
+    padding: 32px 16px; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  main { width: 100%; max-width: 480px; }
+  h1 { font-size: 22px; margin: 0 0 4px; text-align: center; }
+  .sub { text-align: center; color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px;
+    box-shadow: 0 8px 30px rgba(40,40,90,.08); }
+  .top { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .score b { color: var(--accent); font-size: 15px; transition: transform .25s; display: inline-block; }
+  .score b.pop { transform: scale(1.5); }
+  .bar { height: 8px; background: var(--border); border-radius: 99px; overflow: hidden; margin-bottom: 20px; }
+  .bar i { display: block; height: 100%; width: 0; border-radius: 99px;
+    background: linear-gradient(90deg, #5b5bf0, #e052d0, #ff9a3c); transition: width .5s ease; }
+  h2 { font-size: 18px; line-height: 1.4; margin: 0 0 16px; }
+  .opts { display: grid; gap: 10px; }
+  button.opt { font: inherit; text-align: left; padding: 12px 14px; border-radius: 12px; cursor: pointer;
+    border: 2px solid var(--border); background: transparent; color: var(--text);
+    transition: border-color .15s, transform .15s, background .2s; }
+  button.opt:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+  button.opt:focus-visible, .next:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.opt:disabled { cursor: default; }
+  button.opt.ok { border-color: var(--ok); background: var(--ok-bg); animation: pulse .5s; }
+  button.opt.bad { border-color: var(--bad); background: var(--bad-bg); animation: shake .45s; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-9px); }
+    40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+  @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.04); box-shadow: 0 0 0 8px rgba(31,170,89,.2); }
+    100% { transform: scale(1); } }
+  .fact { margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 14px; display: none;
+    animation: fade .3s; }
+  .fact.ok { display: block; background: var(--ok-bg); } .fact.bad { display: block; background: var(--bad-bg); }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } }
+  .next { margin-top: 16px; width: 100%; font: inherit; font-weight: 600; padding: 12px; border: 0; border-radius: 12px;
+    background: var(--accent); color: #fff; cursor: pointer; display: none; }
+  .next.show { display: block; }
+  .results { text-align: center; }
+  .emoji { font-size: 72px; line-height: 1.1; animation: bounce 1s infinite alternate; }
+  @keyframes bounce { to { transform: translateY(-10px) rotate(6deg); } }
+  .big { font-size: 40px; font-weight: 700; margin: 8px 0; color: var(--accent); }
+  .results p { color: var(--muted); margin: 0 0 8px; }
+  .flash-ok { animation: flashok .6s; } .flash-bad { animation: flashbad .6s; }
+  @keyframes flashok { 30% { box-shadow: 0 0 0 4px var(--ok), 0 8px 30px rgba(31,170,89,.4); } }
+  @keyframes flashbad { 30% { box-shadow: 0 0 0 4px var(--bad), 0 8px 30px rgba(229,56,79,.4); } }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎲 Board Game Quiz</h1>
+  <p class="sub">10 questions inspired by boardgamegeek.com</p>
+  <div class="card" id="card"></div>
+  <footer>Facts based on BoardGameGeek game pages.</footer>
+</main>
+<script>
+const POOL = [
+  { q: "Who designed Catan, first published in 1995?", a: ["Klaus Teuber", "Reiner Knizia", "Uwe Rosenberg", "Alan R. Moon"], c: 0, f: "Klaus Teuber designed Catan (originally The Settlers of Catan)." },
+  { q: "Which cooperative game, designed by Matt Leacock, has players racing to cure four diseases?", a: ["Forbidden Island", "Pandemic", "Spirit Island", "Hanabi"], c: 1, f: "Pandemic (2008) is a classic cooperative game." },
+  { q: "Wingspan, by Elizabeth Hargrave, is themed around collecting what?", a: ["Dinosaurs", "Insects", "Birds", "Fish"], c: 2, f: "Players are bird enthusiasts attracting birds to their wildlife preserves." },
+  { q: "Who designed Ticket to Ride (2004)?", a: ["Alan R. Moon", "Vlaada Chvátil", "Bruno Cathala", "Antoine Bauza"], c: 0, f: "Alan R. Moon designed Ticket to Ride, where you claim railway routes." },
+  { q: "In Carcassonne, what do players place to build a medieval landscape?", a: ["Cards", "Dice", "Tiles", "Hexagonal boards"], c: 2, f: "Carcassonne (2000, Klaus-Jürgen Wrede) is a tile-laying game." },
+  { q: "Azul, Spiel des Jahres winner in 2018, has players drafting what?", a: ["Coloured tiles", "Spice cubes", "Gemstone cards", "Meeples"], c: 0, f: "Azul, by Michael Kiesling, uses beautiful Portuguese-style tiles." },
+  { q: "Scythe, by Jamey Stegmaier, is set in an alternate version of which era?", a: ["1920s Europa", "Feudal Japan", "1980s America", "Ancient Rome"], c: 0, f: "Scythe features Jakub Rozalski's art of 1920s Europa with mechs." },
+  { q: "Brass: Birmingham is set during which period?", a: ["Industrial Revolution", "Renaissance", "Viking Age", "Cold War"], c: 0, f: "Players build industries and networks in Industrial Revolution England." },
+  { q: "In Terraforming Mars, what are you trying to make habitable?", a: ["The Moon", "Venus", "Mars", "Titan"], c: 2, f: "Corporations compete to raise Mars's temperature, oxygen, and oceans." },
+  { q: "Who designed Gloomhaven, which held the #1 spot on BGG's overall ranking for years?", a: ["Jamey Stegmaier", "Isaac Childres", "Rob Daviau", "Eric Lang"], c: 1, f:   "Isaac Childres created Gloomhaven (2017)." },
+    { q: "Kingdomino, the 2017 Spiel des Jahres winner, was designed by whom?", a: ["Bruno Cathala", "Matt Leacock", "Elizabeth Hargrave", "Reiner Knizia"], c: 0, f: "Bruno Cathala designed Kingdomino, a domino-style tile-laying game." },
+    { q: "Who designed 7 Wonders (2010)?", a: ["Antoine Bauza", "Donald X. Vaccarino", "Marc André", "Jean-Louis Roubira"], c: 0, f: "Antoine Bauza designed 7 Wonders, a card-drafting civilization game." },
+    { q: "Which 2008 game by Donald X. Vaccarino popularised deck-building?", a: ["Dominion", "Race for the Galaxy", "Ascension", "Star Realms"], c: 0, f: "Dominion launched the deck-building genre." },
+    { q: "In Codenames, what do spymasters give their teams?", a: ["Secret maps", "One-word clues", "Drawings", "Coloured dice"], c: 1, f: "Codenames (Vlaada Chvátil, 2015) is a word-association team game." },
+    { q: "In Splendor, you play Renaissance merchants collecting what?", a: ["Gem tokens", "Spices", "Silk", "Gold coins only"], c: 0, f: "Splendor, by Marc André, uses gem tokens to buy development cards." },
+    { q: "Agricola, by Uwe Rosenberg, is about what?", a: ["Space colonisation", "Farming", "Pirate trading", "Castle building"], c: 1, f: "Players build a farm and feed their family in 17th-century Europe." },
+    { q: "Twilight Struggle is a two-player game set during which conflict?", a: ["World War I", "The Cold War", "The Napoleonic Wars", "The Roman civil wars"], c: 1, f: "It simulates the US–USSR Cold War from 1945 to 1989." },
+    { q: "In Root, by Cole Wehrle, the factions are mostly what?", a: ["Robots", "Woodland creatures", "Samurai", "Aliens"], c: 1, f: "Root is an asymmetric war game among woodland animal factions." },
+    { q: "Dixit is a party game built around what?", a: ["Trivia", "Storytelling with illustrated cards", "Bluffing with dice", "Racing"], c: 1, f: "Dixit (Jean-Louis Roubira) uses dreamlike illustrated cards and clues." },
+    { q: "Who designed Puerto Rico (2002)?", a: ["Andreas Seyfarth", "Klaus Teuber", "Stefan Feld", "Wolfgang Kramer"], c: 0, f:     "Andreas Seyfarth designed Puerto Rico, a classic role-selection game." },
+      { q: "Monopoly traces back to an earlier game created by whom?", a: ["Elizabeth Magie", "Charles Darrow's father", "Parker Brothers' founder", "Anthony Pratt"], c: 0, f: "Elizabeth Magie designed The Landlord's Game (patented 1904), a precursor of Monopoly." },
+      { q: "Risk (1957) was created by which French film director?", a: ["Albert Lamorisse", "Jean Renoir", "Luc Besson", "Claude Chabrol"], c: 0, f: "Albert Lamorisse first published it as La Conquête du Monde." },
+      { q: "Clue (Cluedo) was invented by Anthony E. Pratt in which country?", a: ["England", "United States", "Germany", "Canada"], c: 0, f: "Pratt devised Cluedo in Birmingham, England, in 1943." },
+      { q: "In Spirit Island, what do the players control?", a: ["Island spirits defending against colonizers", "Pirate crews", "Rival gods fighting each other", "Explorers mapping an island"], c: 0, f: "R. Eric Reuss's Spirit Island is a cooperative game of defending an island." },
+      { q: "Ark Nova, by Mathias Wigge, has you building and managing what?", a: ["A modern zoo", "A space station", "A medieval village", "A railway empire"], c: 0, f: "Players run zoos focused on animal conservation." },
+      { q: "Pandemic Legacy: Season 1, by Rob Daviau and Matt Leacock, is notable for what?", a: ["Permanent changes to the game across a campaign", "Being a two-player-only game", "Using no cards", "Being a deck-builder"], c: 0, f: "Its legacy mechanics change the components permanently, and it topped BGG's ranking in 2016." },
+      { q: "Which epic 4X space game was designed by Christian T. Petersen?", a: ["Twilight Imperium", "Eclipse", "Star Wars: Rebellion", "Gaia Project"], c: 0, f: "Twilight Imperium is a long galactic conquest game from Fantasy Flight." },
+      { q: "Dune: Imperium, by Paul Dennen, combines deck-building with which mechanism?", a: ["Worker placement", "Roll-and-write", "Auctions only", "Trick-taking"], c: 0, f: "It blends deck-building, worker placement and light combat." },
+      { q: "In Great Western Trail, you are driving what to Kansas City?", a: ["Cattle", "Wagons of gold", "Sheep", "Locomotives"], c: 0, f: "Alexander Pfister's game has you herding cattle along the trail." },
+      { q: "Concordia, by Mac Gerdts, is set in which ancient civilization?", a: ["The Roman Empire", "Ancient Egypt", "Ancient China", "Mesopotamia"], c: 0, f: "Players trade and colonize around the Roman Mediterranean." },
+      { q: "Who designed The Castles of Burgundy?", a: ["Stefan Feld", "Uwe Rosenberg", "Reiner Knizia", "Michael Kiesling"], c: 0, f: "Stefan Feld designed it, a dice-driven game of building estates." },
+      { q: "7 Wonders Duel is designed for how many players?", a: ["Two", "Three", "Four", "Seven"], c: 0, f: "Antoine Bauza and Bruno Cathala made this two-player spin-off." },
+      { q: "Patchwork, by Uwe Rosenberg, has two players doing what?", a: ["Building quilts with fabric pieces", "Raising sheep", "Painting walls", "Sewing armor"], c: 0, f: "Players buy patches and fit them on a personal quilt board." },
+      { q: "Love Letter, by Seiji Kanai, is famous for using how many cards in its original deck?", a: ["16", "52", "30", "8"], c: 0, f: "The original Love Letter has only 16 cards." },
+      { q: "Sushi Go!, by Phil Walker-Harding, uses which core mechanism?", a: ["Pick and pass card drafting", "Worker placement", "Dice rolling", "Area control"], c: 0, f: "Players pick a card and pass the hand along." },
+      { q: "In King of Tokyo, by Richard Garfield, players are what?", a: ["Giant monsters", "Detectives", "Samurai", "Mad scientists"], c: 0, f: "Monsters battle to control Tokyo using dice." },
+      { q: "In Hanabi, by Antoine Bauza, what is the unusual rule about your hand?", a: ["You can't see your own cards", "You can't speak at all", "You play with eyes closed", "Cards are traded every turn"], c: 0, f: "You see everyone else's cards but not your own, and cooperate to build fireworks." },
+      { q: "Who designed the civilization game Through the Ages?", a: ["Vlaada Chvátil", "Antoine Bauza", "Mac Gerdts", "Isaac Childres"], c: 0, f: "Vlaada Chvátil designed it, a card-driven civilization builder." },
+      { q: "Cascadia, a Spiel des Jahres winner in 2022, is themed around which region?", a: ["The Pacific Northwest", "The Alps", "The Sahara", "Scandinavia"], c: 0, f: "Players build habitats with tiles and wildlife tokens." },
+      { q: "Just One, the 2019 Spiel des Jahres winner, is what type of game?", a: ["Cooperative word guessing", "Deck-building", "Wargame", "Dexterity"], c: 0, f: "Players write one-word clues and duplicate clues cancel out." },
+      { q: "The Quacks of Quedlinburg, by Wolfgang Warsch, has you brewing what?", a: ["Potions", "Beer", "Soup", "Perfume"], c: 0, f: "It is a push-your-luck bag-building game of potion brewing." },
+      { q: "In Mysterium, how do the ghost and psychics communicate?", a: ["Through vision cards", "Spoken riddles", "Written notes", "Hand signals"], c: 0, f: "The silent ghost sends illustrated vision cards to help psychics." },
+      { q: "Viticulture, from Stonemaier Games, is about managing what?", a: ["A vineyard", "A bakery", "A brewery", "An orchard of apples"], c: 0, f: "Players grow grapes and make wine in Tuscany." },
+      { q: "Arkham Horror draws its theme from which author?", a: ["H. P. Lovecraft", "Stephen King", "Edgar Allan Poe", "Bram Stoker"], c: 0, f: "It is set in Lovecraft's Mythos, with cosmic horrors to fight." },
+      { q: "Betrayal at House on the Hill is set in what location?", a: ["A haunted mansion", "A space station", "A pirate ship", "A medieval castle"], c: 0, f: "Explorers search a haunted house until one of them betrays the group." },
+      { q: "Small World, by Philippe Keyaerts, features what?", a: ["Fantasy races competing for limited land", "Tiny trains", "Miniature farms", "Space colonies"], c: 0, f: "Players pick fantasy races and conquer a crowded map." },
+      { q: "Jaipur, a two-player card game, has you trading goods in which region?", a: ["Rajasthan, India", "Morocco", "Silk Road China", "Persia"], c: 0, f: "You are rival merchants trading in Jaipur's market." },
+      { q: "BoardGameGeek was founded in 2000 by which pair?", a: ["Scott Alden and Derk Solko", "Matt Leacock and Rob Daviau", "Jamey Stegmaier and Isaac Childres", "Klaus Teuber and Reiner Knizia"], c: 0, f: "Scott Alden and Derk Solko launched BGG in 2000." },
+      { q: "The word meeple is widely said to have been coined around which game?", a: ["Carcassonne", "Catan", "Pandemic", "Risk"], c: 0, f: "The term came from the little person pieces in Carcassonne." },
+      { q: "What does the German award name Spiel des Jahres mean?", a: ["Game of the Year", "Play of the Century", "Best Board Ever", "Family Fun Award"], c: 0, f: "It is Germany's most prestigious game award, and Catan won it in 1995." }
+];
+  const QUESTIONS_PER_GAME = 10;
+const card = document.getElementById("card");
+  let Q = [], i = 0, score = 0, locked = false;
+
+function shuffle(arr) { return arr.map(v => [Math.random(), v]).sort((x, y) => x[0] - y[0]).map(x => x[1]); }
+  function newGame() { Q = shuffle(POOL).slice(0, QUESTIONS_PER_GAME); i = 0; score = 0; render(); }
+const esc = s => s.replace(/[&<>]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]));
+
+function render() {
+  locked = false;
+  const item = Q[i];
+  const opts = shuffle(item.a.map((t, k) => ({ t, ok: k === item.c })));
+  card.innerHTML = `
+    <div class="top"><span>Question ${i + 1} of ${Q.length}</span><span class="score">Score: <b id="sc">${score}</b></span></div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${Q.length}" aria-valuenow="${i}"><i style="width:${i / Q.length * 100}%"></i></div>
+    <h2>${esc(item.q)}</h2>
+    <div class="opts">${opts.map((o, k) => `<button class="opt" data-ok="${o.ok}">${esc(o.t)}</button>`).join("")}</div>
+    <div class="fact" id="fact"></div>
+    <button class="next" id="next">${i === Q.length - 1 ? "See results" : "Next question →"}</button>`;
+  card.querySelectorAll(".opt").forEach(b => b.onclick = () => answer(b));
+  document.getElementById("next").onclick = () => { i++; i < Q.length ? render() : results(); };
+}
+
+function answer(btn) {
+  if (locked) return; locked = true;
+  const ok = btn.dataset.ok === "true";
+  card.querySelectorAll(".opt").forEach(b => { b.disabled = true; if (b.dataset.ok === "true") b.classList.add("ok"); });
+  if (ok) {
+    score++;
+    const sc = document.getElementById("sc"); sc.textContent = score; sc.classList.add("pop");
+    setTimeout(() => sc.classList.remove("pop"), 300);
+  } else btn.classList.add("bad");
+  card.classList.add(ok ? "flash-ok" : "flash-bad");
+  setTimeout(() => card.classList.remove("flash-ok", "flash-bad"), 700);
+  const fact = document.getElementById("fact");
+  fact.className = "fact " + (ok ? "ok" : "bad");
+  fact.textContent = (ok ? "✅ Correct! " : "❌ Not quite. ") + Q[i].f;
+  document.getElementById("next").classList.add("show");
+  document.getElementById("next").focus();
+  card.querySelector(".bar i").style.width = (i + 1) / Q.length * 100 + "%";
+}
+
+function results() {
+  const [emoji, msg] = score === 10 ? ["🏆", "Perfect! You're a board game legend."]
+    : score >= 8 ? ["🎉", "Fantastic! A true gamer."]
+    : score >= 6 ? ["😎", "Nice work — solid game knowledge."]
+    : score >= 4 ? ["🙂", "Not bad! Time for more game nights."]
+    : ["🎲", "Roll again — the shelf of shame awaits!"];
+  card.innerHTML = `<div class="results">
+    <div class="emoji">${emoji}</div>
+    <div class="big">${score} / ${Q.length}</div>
+    <p>${msg}</p>
+    <div class="bar" style="margin:16px 0"><i style="width:100%"></i></div>
+    <button class="next show" id="again">Play again</button></div>`;
+  document.getElementById("again").  onclick = newGame;
+}
+  newGame();
+</script>
+</body>
+</html>
